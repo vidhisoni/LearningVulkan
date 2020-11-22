@@ -8,10 +8,6 @@
 #include <stdexcept>
 #include <cstdlib>
 
-
-const uint32_t SCREEN_WIDTH = 800;
-const uint32_t SCREEN_HEIGHT = 600;
-
 class HelloTriangleApplication 
 {
 public:
@@ -24,10 +20,15 @@ public:
     }
 
 private:
+    const uint32_t SCREEN_WIDTH = 800;
+    const uint32_t SCREEN_HEIGHT = 600;
+
     SDL_Window* window = NULL;
 
     //Main loop flag
     bool quit = false;
+
+    VkInstance instance = VK_NULL_HANDLE;
 
 private:
     void initWindow()
@@ -38,25 +39,26 @@ private:
         //The surface contained by the window
         SDL_Surface* screenSurface = NULL;
 
+        uint32_t flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
         //Initialize SDL
         if (SDL_Init(SDL_INIT_VIDEO) < 0)
         {
-            std::cout << "SDL could not initialize! SDL_Error: %s\n" << SDL_GetError();
+            std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() <<"\n";
         }
         else
         {
             //Create window
-            window = SDL_CreateWindow("Vulkan", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+            window = SDL_CreateWindow("Vulkan", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, flags);
             if (window == NULL)
             {
-                std::cout << "Window could not be created! SDL_Error: %s\n" << SDL_GetError();
+                std::cout << "Window could not be created! SDL_Error: " << SDL_GetError() << "\n";
             }
         }
     }
 
     void initVulkan() 
     {
-
+        createInstance();
     }
 
     void mainLoop() 
@@ -79,8 +81,50 @@ private:
 
     void cleanup() 
     {
+        vkDestroyInstance(instance, nullptr);
         SDL_DestroyWindow(window);
         SDL_Quit();
+    }
+
+    void createInstance()
+    {
+        VkApplicationInfo appInfo{};
+        appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+        appInfo.pApplicationName = "Hello Triangle";
+        appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.pEngineName = "No Engine";
+        appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+        appInfo.apiVersion = VK_API_VERSION_1_0;
+
+        VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        createInfo.pApplicationInfo = &appInfo;
+        uint32_t sdlExtensionCount = 0;
+        const char** sdlExtensions = NULL;
+
+        sdlGetRequiredInstanceExtensions(&sdlExtensionCount, &sdlExtensions);
+
+        createInfo.enabledExtensionCount = sdlExtensionCount;
+        createInfo.ppEnabledExtensionNames = sdlExtensions;
+        createInfo.enabledLayerCount = 0;
+
+        if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create instance");
+        }
+    }
+
+    void sdlGetRequiredInstanceExtensions(uint32_t* pExtensionCount, const char*** pExtensionNames)
+    {
+        if (!SDL_Vulkan_GetInstanceExtensions(NULL, pExtensionCount, NULL))
+        {
+            std::cout << "SDL could not return all the required extensions. SDL_Error: " << SDL_GetError() << "\n";
+        }
+        *pExtensionNames = (const char**)malloc(sizeof(const char*) * (*pExtensionCount));
+        if (!SDL_Vulkan_GetInstanceExtensions(window, pExtensionCount, *pExtensionNames))
+        {
+            std::cout << "SDL could not return all the required extensions. SDL_Error: " << SDL_GetError() << "\n";
+        }
     }
 };
 
